@@ -107,7 +107,7 @@ struct ContentView: View {
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
-        return formatter
+        return formatter.string(from: date)
     }
     
     private var cardBackground: Color {
@@ -327,7 +327,7 @@ struct InfoHubColumn: View {
                                 .foregroundColor(textColor)
                             Spacer()
                             Text(String(format: "%.0f%%", pcService.cpuUsage))
-                                .font(.system(size: 12, weight: .monospaced))
+                                .font(.system(size: 12, weight: .regular, design: .monospaced))
                                 .foregroundColor(textColor)
                         }
                         ProgressView(value: min(max(pcService.cpuUsage / 100.0, 0), 1))
@@ -342,7 +342,7 @@ struct InfoHubColumn: View {
                                 .foregroundColor(textColor)
                             Spacer()
                             Text(String(format: "%.1f / %.0f GB", pcService.ramUsedGB, pcService.ramTotalGB))
-                                .font(.system(size: 12, weight: .monospaced))
+                                .font(.system(size: 12, weight: .regular, design: .monospaced))
                                 .foregroundColor(textColor)
                         }
                         ProgressView(value: min(max(pcService.ramPercent / 100.0, 0), 1))
