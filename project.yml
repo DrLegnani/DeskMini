@@ -1,0 +1,21 @@
+name: DeskMini
+options:
+  bundleIdPrefix: com.andre
+targets:
+  DeskMini:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: DeskMini
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andre.deskmini
+        INFOPLIST_FILE: DeskMini/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2" # iPhone e iPad
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_VERSION: "5.5"
+        IPHONEOS_DEPLOYMENT_TARGET: "15.0"
