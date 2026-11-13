@@ -13,7 +13,7 @@ App nativo em **SwiftUI (iOS 15+)** projetado para transformar o iPad mini 4 em 
    git branch -M main
    git add .
    git commit -m "feat: initial DeskMini app"
-   git remote add origin https://github.com/SEU_USUARIO/DeskMini.git
+   git remote add origin https://github.com/DrLegnani/DeskMini.git
    git push -u origin main
    ```
 3. Acesse o seu repositório no GitHub e vá até a aba **Actions**.
