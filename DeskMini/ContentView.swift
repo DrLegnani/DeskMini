@@ -2,193 +2,94 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var weatherService = WeatherService()
+    @StateObject private var pcService = PCTelemetryService()
+    
     @State private var currentTime = Date()
+    @State private var promptText = ""
     @State private var isNightMode = false
+    @State private var showSettings = false
     @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }
-    
-    private var secondsFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = ":ss"
-        return formatter
-    }
-    
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "pt_BR")
-        formatter.dateFormat = "EEEE, d 'de' MMMM"
-        return formatter
-    }
     
     var body: some View {
         ZStack {
             // Fundo
-            (isNightMode ? Color.black : Color(red: 0.08, green: 0.09, blue: 0.12))
+            (isNightMode ? Color.black : Color(red: 0.07, green: 0.08, blue: 0.11))
                 .ignoresSafeArea()
             
-            VStack(spacing: 20) {
-                // Barra Superior
-                HStack {
-                    Label("DeskMini", systemImage: "sparkles")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(accentColor.opacity(0.8))
+            VStack(spacing: 12) {
+                // Top Bar
+                HStack(spacing: 16) {
+                    Label("Cockpit IA", systemImage: "terminal.fill")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(accentColor)
+                    
+                    // Status PC
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(pcService.isConnected ? Color.green : Color.red)
+                            .frame(width: 8, height: 8)
+                        Text(pcService.isConnected ? "PC Conectado (\(pcService.host))" : "PC Desconectado")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(cardBackground)
+                    .cornerRadius(12)
+                    .onTapGesture {
+                        showSettings.toggle()
+                    }
                     
                     Spacer()
                     
-                    // Botão Atualizar Clima
-                    Button(action: {
-                        Task { await weatherService.fetchWeather() }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.clockwise")
-                                .rotationEffect(.degrees(weatherService.isLoading ? 360 : 0))
-                                .animation(weatherService.isLoading ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: weatherService.isLoading)
-                            Text("Atualizar")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(cardBackground)
-                        .cornerRadius(20)
+                    // Relógio no topo
+                    Text(timeString(from: currentTime))
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
                         .foregroundColor(textColor)
-                    }
                     
-                    // Botão Modo Noturno
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isNightMode.toggle()
-                        }
-                    }) {
+                    // Alternar Modo Noturno
+                    Button(action: { withAnimation { isNightMode.toggle() } }) {
                         Image(systemName: isNightMode ? "moon.fill" : "sun.max.fill")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 15))
+                            .foregroundColor(isNightMode ? .red : .yellow)
                             .padding(8)
                             .background(cardBackground)
                             .clipShape(Circle())
-                            .foregroundColor(isNightMode ? .red : .yellow)
                     }
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 16)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
                 
-                // Conteúdo Principal (2 Colunas em Paisagem)
-                HStack(alignment: .top, spacing: 24) {
-                    // Coluna da Esquerda: Relógio e Data
-                    VStack(alignment: .leading, spacing: 16) {
-                        Spacer()
-                        
-                        // Horas e Segundos
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text(timeFormatter.string(from: currentTime))
-                                .font(.system(size: 100, weight: .light, design: .rounded))
-                                .foregroundColor(textColor)
-                            
-                            Text(secondsFormatter.string(from: currentTime))
-                                .font(.system(size: 38, weight: .regular, design: .rounded))
-                                .foregroundColor(accentColor.opacity(0.7))
-                        }
-                        
-                        // Data por extenso
-                        Text(dateFormatter.string(from: currentTime).capitalized)
-                            .font(.system(size: 24, weight: .medium, design: .rounded))
-                            .foregroundColor(secondaryTextColor)
-                        
-                        Spacer()
-                        
-                        // Mini Calendário da Semana
-                        WeekCalendarView(accentColor: accentColor, isNightMode: isNightMode)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(28)
-                    .background(cardBackground)
-                    .cornerRadius(24)
+                // Área Principal com 3 Colunas em Paisagem
+                HStack(alignment: .top, spacing: 14) {
+                    // Coluna 1: Antigravity Remote
+                    AntigravityColumn(pcService: pcService,
+                                      promptText: $promptText,
+                                      cardBackground: cardBackground,
+                                      textColor: textColor,
+                                      secondaryTextColor: secondaryTextColor,
+                                      accentColor: accentColor)
+                        .frame(maxWidth: .infinity)
                     
-                    // Coluna da Direita: Clima e Previsão
-                    VStack(spacing: 20) {
-                        // Card do Clima Atual
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack {
-                                Text("TEMPO ATUAL")
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundColor(secondaryTextColor)
-                                Spacer()
-                                Image(systemName: weatherService.conditionIcon)
-                                    .font(.system(size: 32))
-                                    .foregroundColor(isNightMode ? .red : .orange)
-                            }
-                            
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text(String(format: "%.0f°", weatherService.temperature))
-                                    .font(.system(size: 56, weight: .medium, design: .rounded))
-                                    .foregroundColor(textColor)
-                                
-                                Text(weatherService.conditionText)
-                                    .font(.system(size: 20, weight: .regular, design: .rounded))
-                                    .foregroundColor(secondaryTextColor)
-                            }
-                            
-                            HStack(spacing: 16) {
-                                Label("Sensação \(String(format: "%.0f°", weatherService.apparentTemp))", systemImage: "thermometer")
-                                Label("\(weatherService.humidity)% umidade", systemImage: "humidity.fill")
-                            }
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(secondaryTextColor)
-                        }
-                        .padding(24)
-                        .background(cardBackground)
-                        .cornerRadius(24)
-                        
-                        // Previsão Horária
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("PRÓXIMAS HORAS")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .foregroundColor(secondaryTextColor)
-                            
-                            HStack(spacing: 12) {
-                                ForEach(weatherService.hourlyForecast.indices, id: \.self) { index in
-                                    let item = weatherService.hourlyForecast[index]
-                                    VStack(spacing: 8) {
-                                        Text(item.hour)
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(secondaryTextColor)
-                                        Image(systemName: item.icon)
-                                            .font(.system(size: 18))
-                                            .foregroundColor(isNightMode ? .red : .orange)
-                                        Text(String(format: "%.0f°", item.temp))
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(textColor)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
-                        }
-                        .padding(24)
-                        .background(cardBackground)
-                        .cornerRadius(24)
-                        
-                        // Card de Ações Rápidas
-                        HStack(spacing: 12) {
-                            QuickActionButton(title: isNightMode ? "Luz Normal" : "Luz Noturna",
-                                              icon: isNightMode ? "sun.max" : "moon.stars",
-                                              color: accentColor) {
-                                withAnimation { isNightMode.toggle() }
-                            }
-                            
-                            QuickActionButton(title: "Atualizar",
-                                              icon: "arrow.clockwise",
-                                              color: accentColor) {
-                                Task { await weatherService.fetchWeather() }
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
+                    // Coluna 2: ChatGPT Remote
+                    ChatGPTColumn(cardBackground: cardBackground,
+                                  textColor: textColor,
+                                  secondaryTextColor: secondaryTextColor)
+                        .frame(maxWidth: .infinity)
+                    
+                    // Coluna 3: Telemetria, Clima & Controles
+                    InfoHubColumn(weatherService: weatherService,
+                                  pcService: pcService,
+                                  currentTime: currentTime,
+                                  isNightMode: $isNightMode,
+                                  cardBackground: cardBackground,
+                                  textColor: textColor,
+                                  secondaryTextColor: secondaryTextColor,
+                                  accentColor: accentColor)
+                        .frame(width: 310)
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 24)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             }
         }
         .onReceive(timer) { input in
@@ -196,80 +97,364 @@ struct ContentView: View {
         }
         .task {
             await weatherService.fetchWeather()
+            await pcService.fetchTelemetry()
+        }
+        .sheet(isPresented: $showSettings) {
+            PCSettingsView(pcService: pcService)
         }
     }
     
-    // Cores dinâmicas para alternância entre modo normal e noturno
+    private func timeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }
+    
     private var cardBackground: Color {
-        if isNightMode {
-            return Color(white: 0.08)
-        } else {
-            return Color(red: 0.14, green: 0.15, blue: 0.20)
-        }
+        isNightMode ? Color(white: 0.08) : Color(red: 0.13, green: 0.14, blue: 0.19)
     }
-    
     private var textColor: Color {
-        isNightMode ? Color(red: 0.95, green: 0.25, blue: 0.20) : .white
+        isNightMode ? Color(red: 0.95, green: 0.3, blue: 0.25) : .white
     }
-    
     private var secondaryTextColor: Color {
-        isNightMode ? Color(red: 0.70, green: 0.20, blue: 0.15) : Color(white: 0.7)
+        isNightMode ? Color(red: 0.70, green: 0.2, blue: 0.15) : Color(white: 0.65)
     }
-    
     private var accentColor: Color {
-        isNightMode ? Color(red: 0.90, green: 0.20, blue: 0.15) : Color(red: 0.35, green: 0.65, blue: 1.0)
+        isNightMode ? Color(red: 0.90, green: 0.25, blue: 0.20) : Color(red: 0.35, green: 0.65, blue: 1.0)
     }
 }
 
-// Widget da semana
-struct WeekCalendarView: View {
+// MARK: - Coluna 1: Antigravity
+struct AntigravityColumn: View {
+    @ObservedObject var pcService: PCTelemetryService
+    @Binding var promptText: String
+    let cardBackground: Color
+    let textColor: Color
+    let secondaryTextColor: Color
     let accentColor: Color
-    let isNightMode: Bool
-    
-    private let calendar = Calendar.current
-    private let weekDays = ["D", "S", "T", "Q", "Q", "S", "S"]
     
     var body: some View {
-        HStack(spacing: 10) {
-            let currentDayOfWeek = calendar.component(.weekday, from: Date()) - 1
-            ForEach(0..<7, id: \.self) { day in
-                let isToday = day == currentDayOfWeek
-                VStack(spacing: 6) {
-                    Text(weekDays[day])
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(isToday ? (isNightMode ? .red : .white) : Color(white: 0.5))
-                    Circle()
-                        .fill(isToday ? accentColor : Color.clear)
-                        .frame(width: 6, height: 6)
+        VStack(spacing: 12) {
+            // Header da coluna
+            HStack {
+                Label("Antigravity Agent", systemImage: "cpu")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(textColor)
+                Spacer()
+                AgentStatusBadge(status: pcService.agentStatus)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            
+            // Log / Mensagem do agente
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(pcService.agentMessage)
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundColor(textColor.opacity(0.9))
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(isToday ? accentColor.opacity(0.15) : Color.clear)
-                .cornerRadius(12)
+            }
+            .background(Color.black.opacity(0.3))
+            .cornerRadius(14)
+            .padding(.horizontal, 14)
+            
+            // Caixa de aprovação pendente (se houver)
+            if let pending = pcService.pendingApproval {
+                VStack(spacing: 10) {
+                    HStack {
+                        Image(systemName: "exclamationmark.shield.fill")
+                            .foregroundColor(.yellow)
+                        Text("Aprovação Solicitada")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                    }
+                    Text(pending)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(Color(white: 0.9))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    HStack(spacing: 10) {
+                        Button(action: { Task { await pcService.respondApproval(approved: true) } }) {
+                            Text("Aprovar")
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                        Button(action: { Task { await pcService.respondApproval(approved: false) } }) {
+                            Text("Recusar")
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Color.yellow.opacity(0.15))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.yellow.opacity(0.4), lineWidth: 1))
+                .cornerRadius(14)
+                .padding(.horizontal, 14)
+            }
+            
+            // Campo de envio de prompt
+            HStack(spacing: 8) {
+                TextField("Enviar comando ao Antigravity...", text: $promptText)
+                    .font(.system(size: 13))
+                    .padding(10)
+                    .background(Color.black.opacity(0.25))
+                    .cornerRadius(12)
+                    .foregroundColor(.white)
+                
+                Button(action: {
+                    let text = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    Task {
+                        let ok = await pcService.sendPrompt(text)
+                        if ok { promptText = "" }
+                    }
+                }) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(accentColor)
+                }
+                .disabled(promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || pcService.isSending)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
+        }
+        .background(cardBackground)
+        .cornerRadius(20)
+    }
+}
+
+// MARK: - Coluna 2: ChatGPT
+struct ChatGPTColumn: View {
+    let cardBackground: Color
+    let textColor: Color
+    let secondaryTextColor: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Label("ChatGPT", systemImage: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(textColor)
+                Spacer()
+                Text("Web Autenticado")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(secondaryTextColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            
+            // WebView incorporada
+            ChatGPTWebView()
+                .cornerRadius(14)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 10)
+        }
+        .background(cardBackground)
+        .cornerRadius(20)
+    }
+}
+
+// MARK: - Coluna 3: Telemetria & Clima
+struct InfoHubColumn: View {
+    @ObservedObject var weatherService: WeatherService
+    @ObservedObject var pcService: PCTelemetryService
+    let currentTime: Date
+    @Binding var isNightMode: Bool
+    let cardBackground: Color
+    let textColor: Color
+    let secondaryTextColor: Color
+    let accentColor: Color
+    
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 12) {
+                // Card de Clima
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("CLIMA")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(secondaryTextColor)
+                        Spacer()
+                        Image(systemName: weatherService.conditionIcon)
+                            .foregroundColor(.orange)
+                    }
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(String(format: "%.0f°", weatherService.temperature))
+                            .font(.system(size: 38, weight: .medium, design: .rounded))
+                            .foregroundColor(textColor)
+                        Spacer()
+                        Text(weatherService.conditionText)
+                            .font(.system(size: 13))
+                            .foregroundColor(secondaryTextColor)
+                    }
+                    Text("Sensação: \(String(format: "%.0f°", weatherService.apparentTemp)) • Umidade: \(weatherService.humidity)%")
+                        .font(.system(size: 11))
+                        .foregroundColor(secondaryTextColor)
+                }
+                .padding(14)
+                .background(cardBackground)
+                .cornerRadius(18)
+                
+                // Card de Telemetria do PC
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("TELEMETRIA WINDOWS")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(secondaryTextColor)
+                        Spacer()
+                        Image(systemName: "desktopcomputer")
+                            .foregroundColor(accentColor)
+                    }
+                    
+                    // CPU
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("CPU")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(textColor)
+                            Spacer()
+                            Text(String(format: "%.0f%%", pcService.cpuUsage))
+                                .font(.system(size: 12, weight: .monospaced))
+                                .foregroundColor(textColor)
+                        }
+                        ProgressView(value: min(max(pcService.cpuUsage / 100.0, 0), 1))
+                            .tint(accentColor)
+                    }
+                    
+                    // RAM
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("RAM")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(textColor)
+                            Spacer()
+                            Text(String(format: "%.1f / %.0f GB", pcService.ramUsedGB, pcService.ramTotalGB))
+                                .font(.system(size: 12, weight: .monospaced))
+                                .foregroundColor(textColor)
+                        }
+                        ProgressView(value: min(max(pcService.ramPercent / 100.0, 0), 1))
+                            .tint(accentColor)
+                    }
+                }
+                .padding(14)
+                .background(cardBackground)
+                .cornerRadius(18)
+                
+                // Atalhos de Ação Rápida
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button(action: { Task { await pcService.triggerMediaAction("mute") } }) {
+                            Label("Mudo", systemImage: "speaker.slash.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.08))
+                                .foregroundColor(textColor)
+                                .cornerRadius(12)
+                        }
+                        Button(action: { Task { await pcService.triggerMediaAction("playpause") } }) {
+                            Label("Mídia", systemImage: "playpause.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.08))
+                                .foregroundColor(textColor)
+                                .cornerRadius(12)
+                        }
+                    }
+                    
+                    Button(action: { Task { await weatherService.fetchWeather() } }) {
+                        Label("Atualizar Dados", systemImage: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(textColor)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding(14)
+                .background(cardBackground)
+                .cornerRadius(18)
             }
         }
     }
 }
 
-// Botão de ação rápida
-struct QuickActionButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let action: () -> Void
+// Badge de Status do Agente
+struct AgentStatusBadge: View {
+    let status: String
     
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
+        HStack(spacing: 5) {
+            Circle()
+                .fill(badgeColor)
+                .frame(width: 7, height: 7)
+            Text(statusTitle)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(badgeColor)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(badgeColor.opacity(0.15))
+        .cornerRadius(10)
+    }
+    
+    private var statusTitle: String {
+        switch status {
+        case "working": return "Trabalhando"
+        case "waiting_approval": return "Aguardando"
+        default: return "Ocioso"
+        }
+    }
+    
+    private var badgeColor: Color {
+        switch status {
+        case "working": return .blue
+        case "waiting_approval": return .yellow
+        default: return .green
+        }
+    }
+}
+
+// Modal de Configuração do IP do PC
+struct PCSettingsView: View {
+    @ObservedObject var pcService: PCTelemetryService
+    @Environment(\.presentationMode) var presentationMode
+    @State private var inputHost = ""
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Endereço do PC Windows")) {
+                    TextField("IP do PC (ex: 10.1.1.X)", text: $inputHost)
+                        .keyboardType(.numbersAndPunctuation)
+                }
+                Section(footer: Text("O micro-servidor no PC deve estar rodando na porta \(pcService.port).")) {
+                    Button("Salvar e Reconectar") {
+                        pcService.host = inputHost.trimmingCharacters(in: .whitespaces)
+                        Task { await pcService.fetchTelemetry() }
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(white: 0.12))
-            .foregroundColor(color)
-            .cornerRadius(16)
+            .navigationTitle("Configurações do PC")
+            .onAppear {
+                inputHost = pcService.host
+            }
         }
     }
 }
